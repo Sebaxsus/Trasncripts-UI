@@ -1,6 +1,9 @@
 # notas personales (privado)
 CLAUDE.local.md
 
+# configuración local de Claude Code (privada, por máquina)
+.claude/settings.local.json
+
 # build output
 dist/
 
