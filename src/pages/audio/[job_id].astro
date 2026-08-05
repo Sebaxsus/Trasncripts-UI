@@ -1,0 +1,18 @@
+---
+import AuthenticatedLayout from '../../layouts/AuthenticatedLayout.astro';
+import { JobDetail } from '../../components/JobDetail';
+import { isValidJobId } from '../../lib/isUuid';
+
+const { job_id } = Astro.params;
+
+// Validación gratis del lado servidor (SSR), antes de siquiera montar JobDetail.
+if (!job_id || !isValidJobId(job_id)) {
+  return Astro.redirect('/dashboard');
+}
+---
+
+<AuthenticatedLayout title="Detalle del audio">
+  <div class="mx-auto max-w-4xl px-6 py-8">
+    <JobDetail jobId={job_id} client:load />
+  </div>
+</AuthenticatedLayout>

@@ -1,0 +1,40 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import VideoTutorial from '../components/VideoTutorial.astro';
+---
+
+<BaseLayout title="Transcripción y RAG local-first">
+  <main class="mx-auto flex max-w-3xl flex-col gap-12 px-6 py-16">
+    <section class="flex flex-col gap-4 text-center">
+      <h1 class="text-4xl font-bold tracking-tight text-slate-900">Transcripción y RAG local-first</h1>
+      <p class="text-lg text-slate-600">
+        Sube tus audios, mira el progreso en tiempo real, lee la transcripción y pregúntale al corpus completo.
+        Todo corre en tu propia máquina.
+      </p>
+      <div class="mt-2 flex justify-center">
+        <a
+          id="cta-link"
+          href="/login"
+          class="inline-flex items-center justify-center rounded-md bg-brand-600 px-6 py-3 text-sm font-medium text-white hover:bg-brand-700"
+        >
+          Empezar
+        </a>
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-4">
+      <h2 class="text-xl font-semibold text-slate-900">Cómo usar / configurar</h2>
+      <VideoTutorial />
+    </section>
+  </main>
+
+  <script>
+    import { hasToken } from '../lib/auth';
+
+    const cta = document.getElementById('cta-link') as HTMLAnchorElement | null;
+    if (cta && hasToken()) {
+      cta.href = '/dashboard';
+      cta.textContent = 'Ir al dashboard';
+    }
+  </script>
+</BaseLayout>

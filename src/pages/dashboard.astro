@@ -1,0 +1,19 @@
+---
+import AuthenticatedLayout from '../layouts/AuthenticatedLayout.astro';
+import { JobsList } from '../components/JobsList';
+---
+
+<AuthenticatedLayout title="Dashboard">
+  <div class="mx-auto max-w-4xl px-6 py-8">
+    <div class="mb-6 flex items-center justify-between">
+      <h1 class="text-2xl font-semibold text-slate-900">Tus audios</h1>
+      <a
+        href="/upload"
+        class="inline-flex items-center justify-center rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+      >
+        Subir audio
+      </a>
+    </div>
+    <JobsList client:load />
+  </div>
+</AuthenticatedLayout>
