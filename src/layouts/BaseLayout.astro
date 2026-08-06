@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import { ClientRouter } from 'astro:transitions';
 
 interface Props {
   title: string;
@@ -15,8 +16,22 @@ const { title } = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
+    <ClientRouter />
   </head>
   <body class="min-h-screen bg-white text-slate-900 antialiased">
     <slot />
+    <footer class="border-t border-slate-200 px-6 py-6 text-sm text-slate-500">
+      <div class="mx-auto flex max-w-5xl flex-col items-center justify-between gap-2 sm:flex-row">
+        <p>&copy; {new Date().getFullYear()} Sebaxsus — AGPL-3.0-or-later</p>
+        <a
+          href="https://github.com/Sebaxsus/Trasncripts-UI"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="hover:text-slate-900"
+        >
+          Código fuente en GitHub
+        </a>
+      </div>
+    </footer>
   </body>
 </html>

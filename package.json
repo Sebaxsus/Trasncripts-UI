@@ -2,11 +2,18 @@
   "name": "speech-to-text-astro",
   "type": "module",
   "version": "0.0.1",
+  "license": "AGPL-3.0-or-later",
+  "author": "Sebaxsus",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sebaxsus/Trasncripts-UI.git"
+  },
   "engines": {
     "node": ">=22.12.0"
   },
   "scripts": {
     "dev": "astro dev",
+    "dev:host": "astro dev --host",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro"

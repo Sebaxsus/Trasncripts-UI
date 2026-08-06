@@ -115,14 +115,34 @@ class ApiError extends Error {
   }
 }
 
+/** Distingue "el servidor no respondió" (backend caído, DNS, CORS bloqueado)
+ *  de un ApiError (respuesta HTTP recibida pero con status de error). */
+export class NetworkError extends Error {
+  constructor(cause?: unknown) {
+    super('No se pudo conectar con el servidor.');
+    this.name = 'NetworkError';
+    this.cause = cause;
+  }
+}
+
 function assertValidJobId(jobId: string): void {
   if (!isValidJobId(jobId)) {
     throw new Error(`job_id inválido: ${jobId}`);
   }
 }
 
+/** Único punto que llama fetch() nativo — traduce cualquier rechazo de fetch()
+ *  a NetworkError, para que sea distinguible de un ApiError en los catch. */
+async function safeFetch(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (err) {
+    throw new NetworkError(err);
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await safeFetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: { ...authHeaders(), ...(init?.headers ?? {}) }
   });
@@ -133,7 +153,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function getHealth(): Promise<HealthResponse> {
-  const response = await fetch(`${API_BASE_URL}/health`);
+  const response = await safeFetch(`${API_BASE_URL}/health`);
   if (!response.ok) {
     throw new ApiError(`/health → ${response.status}`, response.status);
   }
@@ -142,7 +162,7 @@ export async function getHealth(): Promise<HealthResponse> {
 
 /** Usado solo por LoginForm para validar un token antes de guardarlo. */
 export async function checkToken(token: string): Promise<boolean> {
-  const response = await fetch(`${API_BASE_URL}/api/jobs`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/jobs`, {
     headers: { Authorization: `Bearer ${token}` }
   });
   if (response.status === 401) return false;
@@ -181,7 +201,7 @@ function validateSegmentRange(start: number, end: number): void {
 export async function fetchAudioSegmentBlob(jobId: string, start: number, end: number): Promise<Blob> {
   assertValidJobId(jobId);
   validateSegmentRange(start, end);
-  const response = await fetch(
+  const response = await safeFetch(
     `${API_BASE_URL}/api/jobs/${jobId}/audio-segment?start=${start}&end=${end}`,
     { headers: authHeaders() }
   );

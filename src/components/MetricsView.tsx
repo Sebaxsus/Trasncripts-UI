@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
-import { getMetrics, type MetricsEntry } from '../lib/api';
+import { useCallback, useEffect, useState } from 'react';
+import { getMetrics, NetworkError, type MetricsEntry } from '../lib/api';
+import { Skeleton } from './ui/Skeleton';
+import { Button } from './ui/Button';
 
 interface MetricsViewProps {
   jobId: string;
@@ -7,22 +9,32 @@ interface MetricsViewProps {
   refreshKey: string;
 }
 
+type LoadState = 'loading' | 'ready' | 'error' | 'down';
+
+const SKELETON_COLUMNS = 7;
+
 export function MetricsView({ jobId, refreshKey }: MetricsViewProps) {
   const [entries, setEntries] = useState<MetricsEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [state, setState] = useState<LoadState>('loading');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  useEffect(() => {
+  const load = useCallback(() => {
     let cancelled = false;
+    setState('loading');
     getMetrics(jobId)
       .then((response) => {
-        if (!cancelled) setEntries(response.entries);
+        if (cancelled) return;
+        setEntries(response.entries);
+        setState('ready');
       })
-      .catch(() => {
-        if (!cancelled) setError('No se pudieron cargar las métricas.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+      .catch((err) => {
+        if (cancelled) return;
+        if (err instanceof NetworkError) {
+          setState('down');
+        } else {
+          setErrorMessage('No se pudieron cargar las métricas.');
+          setState('error');
+        }
       });
     return () => {
       cancelled = true;
@@ -30,8 +42,35 @@ export function MetricsView({ jobId, refreshKey }: MetricsViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId, refreshKey]);
 
-  if (loading) return <p className="text-sm text-slate-500">Cargando métricas…</p>;
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
+  useEffect(() => load(), [load]);
+
+  if (state === 'loading' || state === 'down') {
+    const tone = state === 'down' ? 'danger' : 'neutral';
+    return (
+      <div
+        role="status"
+        aria-label={state === 'down' ? 'No se pudo conectar con el servidor' : 'Cargando'}
+        className="flex flex-col gap-2"
+      >
+        {[0, 1, 2, 3].map((row) => (
+          <div key={row} className="flex gap-3 border-b border-slate-100 py-1">
+            {Array.from({ length: SKELETON_COLUMNS }).map((_, col) => (
+              <Skeleton key={col} tone={tone} className="h-4 w-16" />
+            ))}
+          </div>
+        ))}
+        {state === 'down' && (
+          <div className="mt-1 flex items-center justify-between">
+            <p className="text-sm text-red-600">No se pudo conectar con el servidor.</p>
+            <Button type="button" variant="secondary" onClick={load}>
+              Reintentar
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
+  if (state === 'error') return <p className="text-sm text-red-600">{errorMessage}</p>;
   if (entries.length === 0) {
     return <p className="text-sm text-slate-500">Todavía no hay métricas.</p>;
   }

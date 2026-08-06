@@ -1,5 +1,8 @@
 ---
 import BaseLayout from './BaseLayout.astro';
+import { RadioPlayer } from '../components/RadioPlayer';
+import { ServerStatusPill } from '../components/ServerStatusPill';
+import { ToastContainer } from '../components/ToastContainer';
 
 interface Props {
   title: string;
@@ -20,18 +23,34 @@ const { title } = Astro.props;
     */
     main {
       visibility: hidden;
+      /* espacio para que la barra fija del RadioPlayer no tape contenido */
+      padding-bottom: 4rem;
     }
     main.auth-ok {
       visibility: visible;
     }
+    /*
+      El footer vive en BaseLayout.astro, no en este archivo — el scoping de
+      Astro (que solo alcanza elementos escritos literalmente acá) no lo cubre,
+      hace falta :global(). Mismo motivo que el padding-bottom de main: RadioPlayer
+      es fixed inset-x-0 bottom-0, y sin esto tapa el footer al hacer scroll.
+    */
+    :global(footer) {
+      padding-bottom: 4rem;
+    }
   </style>
   <nav class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
     <a href="/dashboard" class="font-semibold text-slate-900">Transcripciones</a>
-    <button id="logout-button" class="text-sm text-slate-600 hover:text-slate-900">Cerrar sesión</button>
+    <div class="flex items-center gap-4">
+      <ServerStatusPill client:load transition:persist="server-status-pill" />
+      <button id="logout-button" class="text-sm text-slate-600 hover:text-slate-900">Cerrar sesión</button>
+    </div>
   </nav>
   <main>
     <slot />
   </main>
+  <RadioPlayer client:load transition:persist="radio-player" />
+  <ToastContainer client:load transition:persist="toast-container" />
 </BaseLayout>
 
 <script>
