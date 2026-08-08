@@ -2,9 +2,18 @@
 // Ningún componente debe hacer fetch/XHR directo al backend — todo pasa por acá.
 // NUNCA llamar /mcp desde el cliente — usar solo estos wrappers /api/* y /health.
 import { authHeaders } from './auth';
+import { backendHostHeaders } from './backendHostPrefs';
 import { isValidJobId } from './isUuid';
 
 const API_BASE_URL = import.meta.env.PUBLIC_API_BASE_URL;
+
+// En dev, todo pasa por el proxy same-origin (src/pages/api/backend-proxy/[...path].ts)
+// para poder testear desde otro dispositivo de la LAN (pnpm dev:host) sin exponer el
+// backend Rust fuera de localhost. En build/preview/producción, sin cambios: pega
+// directo a la env var — el proxy ni siquiera existe fuera de dev.
+function resolveApiBaseUrl(): string {
+  return import.meta.env.DEV ? '/api/backend-proxy' : API_BASE_URL;
+}
 
 // Duplicado a propósito del umbral del backend (src/rag/mod.rs, LOW_CONFIDENCE_THOLD).
 // Los resultados de /api/search no traen low_confidence pre-calculado, a diferencia
@@ -142,9 +151,9 @@ async function safeFetch(input: string, init?: RequestInit): Promise<Response> {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await safeFetch(`${API_BASE_URL}${path}`, {
+  const response = await safeFetch(`${resolveApiBaseUrl()}${path}`, {
     ...init,
-    headers: { ...authHeaders(), ...(init?.headers ?? {}) }
+    headers: { ...authHeaders(), ...backendHostHeaders(), ...(init?.headers ?? {}) }
   });
   if (!response.ok) {
     throw new ApiError(`${path} → ${response.status}`, response.status);
@@ -153,7 +162,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function getHealth(): Promise<HealthResponse> {
-  const response = await safeFetch(`${API_BASE_URL}/health`);
+  const response = await safeFetch(`${resolveApiBaseUrl()}/health`, { headers: backendHostHeaders() });
   if (!response.ok) {
     throw new ApiError(`/health → ${response.status}`, response.status);
   }
@@ -162,8 +171,8 @@ export async function getHealth(): Promise<HealthResponse> {
 
 /** Usado solo por LoginForm para validar un token antes de guardarlo. */
 export async function checkToken(token: string): Promise<boolean> {
-  const response = await safeFetch(`${API_BASE_URL}/api/jobs`, {
-    headers: { Authorization: `Bearer ${token}` }
+  const response = await safeFetch(`${resolveApiBaseUrl()}/api/jobs`, {
+    headers: { Authorization: `Bearer ${token}`, ...backendHostHeaders() }
   });
   if (response.status === 401) return false;
   if (!response.ok) {
@@ -202,8 +211,8 @@ export async function fetchAudioSegmentBlob(jobId: string, start: number, end: n
   assertValidJobId(jobId);
   validateSegmentRange(start, end);
   const response = await safeFetch(
-    `${API_BASE_URL}/api/jobs/${jobId}/audio-segment?start=${start}&end=${end}`,
-    { headers: authHeaders() }
+    `${resolveApiBaseUrl()}/api/jobs/${jobId}/audio-segment?start=${start}&end=${end}`,
+    { headers: { ...authHeaders(), ...backendHostHeaders() } }
   );
   if (!response.ok) {
     throw new ApiError(`/api/jobs/${jobId}/audio-segment → ${response.status}`, response.status);
@@ -280,7 +289,10 @@ export function uploadAudio({ file, title, notify, onProgress }: UploadAudioPara
     }
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${API_BASE_URL}/api/upload-audio`);
+    xhr.open('POST', `${resolveApiBaseUrl()}/api/upload-audio`);
+    for (const [name, value] of Object.entries(backendHostHeaders())) {
+      xhr.setRequestHeader(name, value);
+    }
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable && onProgress) {
