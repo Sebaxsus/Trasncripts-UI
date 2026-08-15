@@ -21,16 +21,32 @@ const { title } = Astro.props;
   <body class="min-h-screen bg-white text-slate-900 antialiased">
     <slot />
     <footer class="border-t border-slate-200 px-6 py-6 text-sm text-slate-500">
-      <div class="mx-auto flex max-w-5xl flex-col items-center justify-between gap-2 sm:flex-row">
-        <p>&copy; {new Date().getFullYear()} Sebaxsus — AGPL-3.0-or-later</p>
-        <a
-          href="https://github.com/Sebaxsus/Trasncripts-UI"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="hover:text-slate-900"
-        >
-          Código fuente en GitHub
-        </a>
+      <div class="mx-auto flex max-w-5xl flex-col gap-3">
+        <div class="flex flex-col items-center justify-between gap-2 sm:flex-row">
+          <p>
+            &copy; {new Date().getFullYear()} Sebaxsus —
+            <a
+              href="https://github.com/Sebaxsus/Trasncripts-UI/blob/main/LICENSE"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="hover:text-slate-900"
+            >
+              AGPL-3.0-or-later
+            </a>
+          </p>
+          <a
+            href="https://github.com/Sebaxsus/Trasncripts-UI"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="hover:text-slate-900"
+          >
+            Código fuente en GitHub
+          </a>
+        </div>
+        <p class="text-center text-xs text-slate-400">
+          Proyecto pensado para ejecutarse en local: los audios y transcripciones no salen de tu máquina, protegiendo
+          los datos personales de terceros conforme a la Ley de Habeas Data en Colombia (Ley 1581 de 2012).
+        </p>
       </div>
     </footer>
   </body>

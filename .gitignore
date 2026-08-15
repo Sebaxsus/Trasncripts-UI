@@ -31,3 +31,7 @@ pnpm-debug.log*
 
 # artefactos de pruebas con Playwright
 .playwright-mcp/
+
+# Imagenes manuales de pruebas E2E
+TestImg
+TestImg/*

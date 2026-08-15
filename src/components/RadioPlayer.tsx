@@ -1,17 +1,35 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { RADIO_STATIONS } from '../lib/radio';
 import { Button } from './ui/Button';
 
 type Status = 'idle' | 'loading' | 'playing' | 'error';
 
-// Única emisora por ahora — selector entre emisoras queda pendiente,
-// ver docs/TODO.md.
-const station = RADIO_STATIONS[0];
-
 export function RadioPlayer() {
+  const [stationIndex, setStationIndex] = useState(0);
   const [status, setStatus] = useState<Status>('idle');
-  const [volume, setVolume] = useState(0.7);
+  const [volume, setVolume] = useState(0.4);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Si se cambia de emisora mientras suena, retoma la reproducción en la
+  // nueva una vez cargada; si estaba idle/error, solo cambia la selección.
+  const resumeOnStationChangeRef = useRef(false);
+  const isFirstStationEffectRef = useRef(true);
+  const station = RADIO_STATIONS[stationIndex];
+
+  useEffect(() => {
+    // Se salta el montaje inicial a propósito: el <audio> ya trae el src
+    // correcto vía JSX, y llamar load() acá pisaría el preload="none"
+    // (dispararía la carga del stream antes de que el usuario presione play).
+    if (isFirstStationEffectRef.current) {
+      isFirstStationEffectRef.current = false;
+      return;
+    }
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.load();
+    if (resumeOnStationChangeRef.current) {
+      audio.play().catch(() => setStatus('error'));
+    }
+  }, [station.streamUrl]);
 
   function handleToggle() {
     const audio = audioRef.current;
@@ -28,6 +46,15 @@ export function RadioPlayer() {
     // punto en vivo original ya quedó atrás.
     audio.load();
     audio.play().catch(() => setStatus('error'));
+  }
+
+  function handleStationChange(event: ChangeEvent<HTMLSelectElement>) {
+    const nextIndex = Number(event.target.value);
+    if (nextIndex === stationIndex) return;
+    const shouldResume = status === 'playing' || status === 'loading';
+    resumeOnStationChangeRef.current = shouldResume;
+    setStationIndex(nextIndex);
+    setStatus(shouldResume ? 'loading' : 'idle');
   }
 
   function handleVolumeChange(event: ChangeEvent<HTMLInputElement>) {
@@ -63,7 +90,18 @@ export function RadioPlayer() {
         {status === 'loading' ? '…' : status === 'playing' ? '⏸' : status === 'error' ? '⚠' : '▶'}
       </Button>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-slate-900">{station.name}</p>
+        <select
+          value={stationIndex}
+          onChange={handleStationChange}
+          aria-label="Emisora"
+          className="w-full cursor-pointer truncate rounded-sm bg-transparent text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+        >
+          {RADIO_STATIONS.map((option, index) => (
+            <option key={option.id} value={index}>
+              {option.name}
+            </option>
+          ))}
+        </select>
         <p className="truncate text-xs text-slate-500">
           {station.frequency}
           {status === 'error' && ' · Error de conexión, intenta de nuevo'}

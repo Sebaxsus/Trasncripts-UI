@@ -56,16 +56,37 @@ const { title } = Astro.props;
 <script>
   import { hasToken, clearToken } from '../lib/auth';
 
-  const main = document.querySelector('main');
-
-  if (!hasToken()) {
-    window.location.replace('/login');
-  } else {
-    main?.classList.add('auth-ok');
+  // El bundle de este script solo se ejecuta una vez (Astro no vuelve a
+  // correr un script con contenido idéntico al de la página anterior tras
+  // una view transition, para no repetir trabajo) — sin esto, `main` se
+  // queda en visibility:hidden para siempre en cualquier navegación SPA
+  // posterior a la primera. Por eso el guard vive en una función que se
+  // llama de entrada (carga inicial, sin esperar ningún evento) y además se
+  // vuelve a enganchar a `astro:after-swap` — evento nativo de Astro que
+  // solo se dispara tras cada swap del ClientRouter, nunca en la carga
+  // inicial (a diferencia de `astro:page-load`, que en la carga inicial
+  // espera al evento `load` de la ventana — recursos incluidos — e
+  // introduciría un parpadeo de más antes de revelar `main`).
+  function applyAuthGuard() {
+    const main = document.querySelector('main');
+    if (!hasToken()) {
+      window.location.replace('/login');
+    } else {
+      main?.classList.add('auth-ok');
+    }
   }
 
-  document.getElementById('logout-button')?.addEventListener('click', () => {
-    clearToken();
-    window.location.href = '/login';
+  function bindLogout() {
+    document.getElementById('logout-button')?.addEventListener('click', () => {
+      clearToken();
+      window.location.href = '/login';
+    });
+  }
+
+  applyAuthGuard();
+  bindLogout();
+  document.addEventListener('astro:after-swap', () => {
+    applyAuthGuard();
+    bindLogout();
   });
 </script>
