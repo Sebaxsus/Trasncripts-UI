@@ -1,14 +1,24 @@
-import { useState, type SubmitEvent } from 'react';
+import { useState, type ChangeEvent, type SubmitEvent } from 'react';
 import { checkToken, getHealth } from '../lib/api';
 import { setToken } from '../lib/auth';
+import { getBackendHost, setBackendHost } from '../lib/backendHostPrefs';
 import { Button } from './ui/Button';
 
 type Status = 'idle' | 'checking' | 'error';
 
 export function LoginForm() {
   const [token, setTokenInput] = useState('');
+  const [backendHost, setBackendHostInput] = useState(() => getBackendHost());
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
+
+  function handleBackendHostChange(event: ChangeEvent<HTMLInputElement>) {
+    const value = event.target.value;
+    setBackendHostInput(value);
+    // Se persiste en cada cambio (no en el submit) para que el getHealth()/checkToken()
+    // de handleSubmit, que se disparan enseguida, ya usen el valor recién tipeado.
+    setBackendHost(value);
+  }
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -53,6 +63,22 @@ export function LoginForm() {
           required
         />
       </label>
+      {import.meta.env.DEV && (
+        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+          Host del backend (opcional)
+          <input
+            type="text"
+            value={backendHost}
+            onChange={handleBackendHostChange}
+            placeholder="localhost:3000"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            autoComplete="off"
+          />
+          <span className="text-xs font-normal text-slate-500">
+            Solo para probar desde otro dispositivo de la red mientras corres <code>pnpm dev:host</code>.
+          </span>
+        </label>
+      )}
       {error && <p className="text-sm text-red-600">{error}</p>}
       <Button type="submit" disabled={status === 'checking'}>
         {status === 'checking' ? 'Verificando…' : 'Entrar'}

@@ -29,7 +29,9 @@ export default defineConfig({
         "img-src 'self' data:",
         // blob: para SegmentPlayButton (fetch + blob + URL.createObjectURL,
         // necesario porque el endpoint de audio requiere header Authorization).
-        "media-src 'self' blob:",
+        // mdstrm.com/*.cdn.mdstrm.com para RadioPlayer (stream público de
+        // El Sol Barranquilla, sin auth — ver lib/radio.ts).
+        "media-src 'self' blob: https://mdstrm.com https://*.cdn.mdstrm.com",
         "frame-ancestors 'none'",
         "base-uri 'self'",
         "form-action 'self'"

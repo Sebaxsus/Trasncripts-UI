@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { getTranscript, type TranscriptEntry } from '../lib/api';
+import { useCallback, useEffect, useState } from 'react';
+import { getTranscript, NetworkError, type TranscriptEntry } from '../lib/api';
 import { downloadTextFile } from '../lib/download';
 import { Button } from './ui/Button';
 import { Pill } from './ui/Pill';
+import { Skeleton } from './ui/Skeleton';
 import { SegmentPlayButton } from './SegmentPlayButton';
 
 interface TranscriptViewProps {
@@ -25,22 +26,30 @@ function toJsonl(entries: TranscriptEntry[]): string {
   return entries.map((e) => JSON.stringify(e)).join('\n');
 }
 
+type LoadState = 'loading' | 'ready' | 'error' | 'down';
+
 export function TranscriptView({ jobId, refreshKey }: TranscriptViewProps) {
   const [entries, setEntries] = useState<TranscriptEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [state, setState] = useState<LoadState>('loading');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  useEffect(() => {
+  const load = useCallback(() => {
     let cancelled = false;
+    setState('loading');
     getTranscript(jobId)
       .then((response) => {
-        if (!cancelled) setEntries(response.entries);
+        if (cancelled) return;
+        setEntries(response.entries);
+        setState('ready');
       })
-      .catch(() => {
-        if (!cancelled) setError('No se pudo cargar la transcripción.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+      .catch((err) => {
+        if (cancelled) return;
+        if (err instanceof NetworkError) {
+          setState('down');
+        } else {
+          setErrorMessage('No se pudo cargar la transcripción.');
+          setState('error');
+        }
       });
     return () => {
       cancelled = true;
@@ -48,8 +57,37 @@ export function TranscriptView({ jobId, refreshKey }: TranscriptViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId, refreshKey]);
 
-  if (loading) return <p className="text-sm text-slate-500">Cargando transcripción…</p>;
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
+  useEffect(() => load(), [load]);
+
+  if (state === 'loading' || state === 'down') {
+    const tone = state === 'down' ? 'danger' : 'neutral';
+    return (
+      <div
+        role="status"
+        aria-label={state === 'down' ? 'No se pudo conectar con el servidor' : 'Cargando'}
+        className="flex flex-col gap-2"
+      >
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="flex items-start gap-3 p-2">
+            <Skeleton tone={tone} className="h-8 w-8 shrink-0 rounded-full" />
+            <div className="flex flex-1 flex-col gap-2">
+              <Skeleton tone={tone} className="h-4 w-full" />
+              <Skeleton tone={tone} className="h-4 w-2/3" />
+            </div>
+          </div>
+        ))}
+        {state === 'down' && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-red-600">No se pudo conectar con el servidor.</p>
+            <Button type="button" variant="secondary" onClick={load}>
+              Reintentar
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
+  if (state === 'error') return <p className="text-sm text-red-600">{errorMessage}</p>;
   if (entries.length === 0) {
     return <p className="text-sm text-slate-500">Todavía no hay transcripción.</p>;
   }

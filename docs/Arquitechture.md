@@ -20,9 +20,12 @@ src/
 │   ├── dashboard.astro           # JobsList
 │   ├── upload.astro              # UploadForm
 │   ├── audio/[job_id].astro      # JobDetail — valida job_id (UUID) en SSR
-│   └── api/hooks/
-│       ├── job-status.ts         # POST — recibe el webhook del backend
-│       └── subscribe.ts          # GET (SSE) — reenvía al browser
+│   └── api/
+│       ├── hooks/
+│       │   ├── job-status.ts     # POST — recibe el webhook del backend
+│       │   └── subscribe.ts      # GET (SSE) — reenvía al browser
+│       └── backend-proxy/
+│           └── [...path].ts      # proxy dev-only al backend real (testing LAN, ver SECURITY.md)
 ├── layouts/
 │   ├── BaseLayout.astro          # shell HTML común
 │   └── AuthenticatedLayout.astro # guard de auth + nav + logout
@@ -40,6 +43,7 @@ src/
 ├── lib/
 │   ├── api.ts                    # único punto de contacto con el backend
 │   ├── auth.ts                   # token en localStorage
+│   ├── backendHostPrefs.ts       # override dev-only del host del backend (localStorage)
 │   ├── isUuid.ts
 │   ├── download.ts                # utilidad de descarga client-side
 │   ├── hooks/useJobEvents.ts      # cliente SSE (EventSource)
@@ -65,6 +69,10 @@ src/
 4. `useJobEvents` (cliente) abre el `EventSource`, actualiza estado local, y se desuscribe (`.close()`) al desmontar.
 
 Precondición operativa: el backend Rust y el servidor Node de Astro tienen que correr juntos localmente para que el webhook llegue.
+
+### Proxy dev-only al backend (testing desde la LAN)
+
+`pnpm dev:host` bindea el dev server de Astro a `0.0.0.0`, alcanzable desde otro dispositivo de la red — pero `PUBLIC_API_BASE_URL` (típicamente `http://localhost:3000`) se inlinea en el bundle del navegador, así que desde otro dispositivo `localhost:3000` resuelve a ese mismo dispositivo, no a la máquina host. En vez de bindear el backend Rust a `0.0.0.0` (descartado por seguridad, ver `SECURITY.md`), `src/pages/api/backend-proxy/[...path].ts` reenvía server-side hacia el backend real (siempre en `localhost`, nunca expuesto a la LAN). `lib/api.ts` resuelve la base URL con `resolveApiBaseUrl()`: en dev, todo pasa por `/api/backend-proxy` (same-origin); fuera de dev, sin cambios, pega directo a `PUBLIC_API_BASE_URL`. El host destino es configurable desde un campo opcional en `LoginForm` (persistido en `localStorage` vía `lib/backendHostPrefs.ts`, header `X-Backend-Host`), útil si el backend no corre en la misma máquina que `pnpm dev`; sin configurar nada, usa `localhost:3000` por defecto. Detalle de las mitigaciones de seguridad en `SECURITY.md`.
 
 ### Detalle de un job
 

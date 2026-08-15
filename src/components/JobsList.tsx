@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { getJobs, type JobSummary } from '../lib/api';
+import { getJobs, NetworkError, type JobSummary } from '../lib/api';
 import { useJobEvents } from '../lib/hooks/useJobEvents';
 import { Card } from './ui/Card';
 import { Pill } from './ui/Pill';
+import { Skeleton } from './ui/Skeleton';
+import { Button } from './ui/Button';
 
 type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'info';
 
@@ -24,19 +26,25 @@ function formatDuration(seconds: number | null): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+type LoadState = 'loading' | 'ready' | 'error' | 'down';
+
 export function JobsList() {
   const [jobs, setJobs] = useState<JobSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [state, setState] = useState<LoadState>('loading');
+  const [errorMessage, setErrorMessage] = useState('');
 
   async function refetch() {
     try {
       const data = await getJobs();
       setJobs(data);
-    } catch {
-      setError('No se pudieron cargar los audios.');
-    } finally {
-      setLoading(false);
+      setState('ready');
+    } catch (err) {
+      if (err instanceof NetworkError) {
+        setState('down');
+      } else {
+        setErrorMessage('No se pudieron cargar los audios.');
+        setState('error');
+      }
     }
   }
 
@@ -53,8 +61,35 @@ export function JobsList() {
     onReconnect: refetch
   });
 
-  if (loading) return <p className="text-sm text-slate-500">Cargando…</p>;
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
+  if (state === 'loading' || state === 'down') {
+    const tone = state === 'down' ? 'danger' : 'neutral';
+    return (
+      <div
+        role="status"
+        aria-label={state === 'down' ? 'No se pudo conectar con el servidor' : 'Cargando'}
+        className="flex flex-col gap-3"
+      >
+        {[0, 1, 2].map((i) => (
+          <Card key={i} className="flex items-center justify-between">
+            <div className="flex flex-col gap-2">
+              <Skeleton tone={tone} className="h-4 w-48" />
+              <Skeleton tone={tone} className="h-3 w-24" />
+            </div>
+            <Skeleton tone={tone} className="h-5 w-16 rounded-full" />
+          </Card>
+        ))}
+        {state === 'down' && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-red-600">No se pudo conectar con el servidor.</p>
+            <Button type="button" variant="secondary" onClick={refetch}>
+              Reintentar
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
+  if (state === 'error') return <p className="text-sm text-red-600">{errorMessage}</p>;
   if (jobs.length === 0) {
     return <p className="text-sm text-slate-500">Todavía no subiste ningún audio.</p>;
   }

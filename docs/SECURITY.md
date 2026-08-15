@@ -34,6 +34,19 @@ Cabeceras que sí van en `src/middleware.ts` (aplican siempre, dev y prod): `X-C
 - Ninguna función acepta un string libre para construir un *path* — `job_id` se valida como UUID (`isValidJobId`) antes de interpolarse en cualquier URL; `start`/`end` de segmentos se validan contra los límites del backend (`start >= 0`, `end > start`, `end - start <= 120`) antes de construir la URL.
 - `callback_url` del upload **no es un parámetro que un componente pueda pasar** — `uploadAudio` lo arma internamente como `${window.location.origin}/api/hooks/job-status`, fijo. Esto hace estructuralmente imposible que un formulario exponga un campo editable por el usuario para esa URL (vector potencial de SSRF del lado del backend si se le pudiera pasar cualquier URL).
 
+## Proxy dev-only al backend (`src/pages/api/backend-proxy/[...path].ts`)
+
+Existe para testear el cliente desde otro dispositivo de la LAN (`pnpm dev:host`) sin bindear el backend Rust a `0.0.0.0` — bindearlo expondría el token compartido a toda la red, riesgo explícitamente descartado. En su lugar, el propio servidor Node de Astro (alcanzable vía `--host`) reenvía las llamadas hacia el backend real, que sigue siempre en `localhost`.
+
+Mitigaciones porque este proxy, si se dejara mal acotado, sería SSRF de libro:
+
+- **Gateado a `import.meta.env.DEV`**: la ruta devuelve `404` fuera de dev (defensa en profundidad — un proxy abierto que reenvía a cualquier host que el cliente le pida no debe existir en `build`/`preview`/producción).
+- **Host destino validado**: se lee de un header `X-Backend-Host` que manda el cliente (`lib/backendHostPrefs.ts`, override opcional persistido en `localStorage`, configurable desde `LoginForm`), pero se valida contra `/^[a-zA-Z0-9.-]+(:\d{1,5})?$/` antes de usarse — solo host/IP + puerto, sin esquema ni path. Cualquier valor que no matchee (incluido un intento de inyectar una URL completa) se ignora en silencio y cae al default.
+- **Default con una sola fuente de verdad**: si no hay header o es inválido, se deriva de `PUBLIC_API_BASE_URL` (mismo env var que ya se usa para la CSP), con fallback final a `localhost:3000` — nunca hardcodeado en dos lugares.
+- **Streaming, no buffer**: el body de la request (incluido el upload de hasta 1 GiB) se reenvía como `ReadableStream` con `duplex: 'half'`, no se bufferea en memoria del proceso Node.
+
+El campo "Host del backend" en `LoginForm` está detrás del mismo `import.meta.env.DEV` — no se renderiza en un cliente servido por `build`/`preview`, donde no tendría ningún efecto de todos modos.
+
 ## Validación de `job_id` en dos capas
 
 1. **SSR** (`src/pages/audio/[job_id].astro`): valida el param de la URL como UUID en el frontmatter, antes de montar `JobDetail`. Si no matchea, `Astro.redirect('/dashboard')`.

@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getJob, getHealth, resumeJob, type JobDetailResponse, type HealthResponse } from '../lib/api';
+import {
+  getJob,
+  getHealth,
+  resumeJob,
+  NetworkError,
+  type JobDetailResponse,
+  type HealthResponse
+} from '../lib/api';
 import { useJobEvents } from '../lib/hooks/useJobEvents';
 import { isValidJobId } from '../lib/isUuid';
 import { Button } from './ui/Button';
 import { Pill } from './ui/Pill';
+import { Skeleton } from './ui/Skeleton';
 import { TranscriptView } from './TranscriptView';
 import { MetricsView } from './MetricsView';
 import { RagChat } from './RagChat';
@@ -13,6 +21,7 @@ interface JobDetailProps {
 }
 
 type DetailTab = 'transcript' | 'metrics';
+type LoadState = 'loading' | 'ready' | 'error' | 'down';
 
 // Único polling permitido del proyecto: acotado, solo mientras esta página
 // está montada y el job está Processing.
@@ -25,7 +34,8 @@ function isTerminal(status: string): boolean {
 export function JobDetail({ jobId }: JobDetailProps) {
   const [job, setJob] = useState<JobDetailResponse | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [error, setError] = useState('');
+  const [loadState, setLoadState] = useState<LoadState>('loading');
+  const [errorMessage, setErrorMessage] = useState('');
   const [resuming, setResuming] = useState(false);
   const [tab, setTab] = useState<DetailTab>('transcript');
 
@@ -50,8 +60,14 @@ export function JobDetail({ jobId }: JobDetailProps) {
     try {
       const data = await getJob(jobId);
       applyJobUpdate(data);
-    } catch {
-      setError('No se pudo cargar el job.');
+      setLoadState('ready');
+    } catch (err) {
+      if (err instanceof NetworkError) {
+        setLoadState('down');
+      } else {
+        setErrorMessage('No se pudo cargar el job.');
+        setLoadState('error');
+      }
     }
   }, [jobId, validJobId, applyJobUpdate]);
 
@@ -88,13 +104,40 @@ export function JobDetail({ jobId }: JobDetailProps) {
     return <p className="text-sm text-red-600">job_id inválido.</p>;
   }
 
-  if (error && !job) {
-    return <p className="text-sm text-red-600">{error}</p>;
+  if (!job && (loadState === 'loading' || loadState === 'down')) {
+    const tone = loadState === 'down' ? 'danger' : 'neutral';
+    return (
+      <div
+        role="status"
+        aria-label={loadState === 'down' ? 'No se pudo conectar con el servidor' : 'Cargando'}
+        className="flex flex-col gap-4"
+      >
+        <div className="flex flex-col gap-2">
+          <Skeleton tone={tone} className="h-7 w-64" />
+          <Skeleton tone={tone} className="h-5 w-20 rounded-full" />
+        </div>
+        <div className="flex gap-4 border-b border-slate-200 pb-2">
+          <Skeleton tone={tone} className="h-5 w-24" />
+          <Skeleton tone={tone} className="h-5 w-24" />
+        </div>
+        <Skeleton tone={tone} className="h-40 w-full" />
+        {loadState === 'down' && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-red-600">No se pudo conectar con el servidor.</p>
+            <Button type="button" variant="secondary" onClick={refetchJob}>
+              Reintentar
+            </Button>
+          </div>
+        )}
+      </div>
+    );
   }
 
-  if (!job) {
-    return <p className="text-sm text-slate-500">Cargando…</p>;
+  if (!job && loadState === 'error') {
+    return <p className="text-sm text-red-600">{errorMessage}</p>;
   }
+
+  if (!job) return null;
 
   async function handleResume() {
     setResuming(true);
@@ -102,7 +145,7 @@ export function JobDetail({ jobId }: JobDetailProps) {
       await resumeJob(jobId);
       await refetchJob();
     } catch {
-      setError('No se pudo reanudar el job.');
+      setErrorMessage('No se pudo reanudar el job.');
     } finally {
       setResuming(false);
     }
@@ -110,6 +153,14 @@ export function JobDetail({ jobId }: JobDetailProps) {
 
   return (
     <div className="flex flex-col gap-6">
+      {loadState === 'down' && (
+        <div className="flex items-center justify-between rounded-md border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-red-700 shadow-[0_0_18px_-4px_rgba(239,68,68,0.35)]">
+          <span>Se perdió la conexión con el servidor. Los datos pueden estar desactualizados.</span>
+          <Button type="button" variant="secondary" onClick={refetchJob}>
+            Reintentar
+          </Button>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">

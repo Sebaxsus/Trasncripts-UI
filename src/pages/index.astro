@@ -1,6 +1,8 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import VideoTutorial from '../components/VideoTutorial.astro';
+import { Card } from '../components/ui/Card';
+import { Pill } from '../components/ui/Pill';
 ---
 
 <BaseLayout title="Transcripción y RAG local-first">
@@ -19,6 +21,41 @@ import VideoTutorial from '../components/VideoTutorial.astro';
         >
           Empezar
         </a>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <Card className="flex flex-col gap-3 md:col-span-2 md:row-span-2">
+        <h2 class="text-lg font-semibold text-slate-900">Qué es esto</h2>
+        <p class="text-sm text-slate-600">
+          Transcripción de audio 100% local con Whisper, búsqueda semántica (RAG) sobre tu propio
+          corpus de transcripciones, y progreso en tiempo real vía Server-Sent Events mientras se
+          procesa cada audio. Todo — modelo, base vectorial y backend — corre en tu propia máquina;
+          nada se sube a un servicio de terceros.
+        </p>
+        <div class="mt-1 flex flex-wrap gap-2">
+          <Pill tone="info">Transcripción local</Pill>
+          <Pill tone="info">RAG</Pill>
+          <Pill tone="info">Tiempo real (SSE)</Pill>
+        </div>
+      </Card>
+
+      <Card className="flex flex-col gap-2">
+        <h3 class="text-sm font-semibold text-slate-900">Notas de uso</h3>
+        <ul class="flex flex-col gap-1 text-sm text-slate-600">
+          <li>El backend corre aparte, en <code>localhost:3000</code>.</li>
+          <li>El login es un token compartido — no hay cuentas de usuario reales.</li>
+          <li>Límite de subida: 1 GiB por audio.</li>
+        </ul>
+      </Card>
+
+      <div class="flex flex-col gap-2 rounded-lg border border-danger-200 bg-danger-50 p-4 shadow-sm">
+        <h3 class="text-sm font-semibold text-slate-900">Advertencias</h3>
+        <Pill tone="warning">Proyecto experimental / universitario</Pill>
+        <p class="text-sm text-slate-600">
+          No hay sistema de cuentas real: cualquiera con el token de acceso puede ver todos los
+          audios y transcripciones subidos.
+        </p>
       </div>
     </section>
 

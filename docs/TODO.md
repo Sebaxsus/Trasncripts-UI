@@ -8,6 +8,21 @@
 - **Reconexión de `EventSource` sin backoff manual** — se apoya en el reintento automático del browser (built-in de la spec). Funciona, pero no hay control fino sobre el intervalo de reintento si algún día hace falta.
 - **Recordatorio de proceso**: cambios relacionados a la CSP (o a cualquier cosa que dependa de `security.csp`, que Astro desactiva en `dev`) solo se pueden verificar con `pnpm build && pnpm preview`, nunca alcanza con `pnpm dev`. Ver `docs/SECURITY.md`.
 
+## Radio en vivo (`RadioPlayer`)
+
+Barra fija inferior, presente en todo el layout autenticado (`AuthenticatedLayout.astro`), que reproduce "El Sol Barranquilla" (99.1 FM) en streaming. Persiste entre navegaciones vía Astro View Transitions (`<ClientRouter />` en `BaseLayout.astro` + `transition:persist="radio-player"`) — sin esto, cada cambio de página remonta el layout y corta el audio.
+
+**Hallazgo técnico**: la página de origen (`emisorascolombianas.co`) ofusca la URL del stream como `{ cipher, iv }` en un `<script id="radio-streams-json">`. No hizo falta descifrar eso — inspeccionando la red con Playwright mientras se reproducía, el propio sitio pide `https://mdstrm.com/audio/{id}/icecast.audio`, que responde `302` hacia una URL firmada de corta duración en `*.cdn.mdstrm.com`. Esa URL "amigable" es pública, sin autenticación, con `Access-Control-Allow-Origin: *`, sirve `audio/aac`, y el navegador sigue la redirección solo — funciona directo como `src` de `<audio>`, sin proxy backend. Ver `lib/radio.ts`.
+
+### Feature pendiente: selector entre emisoras
+
+El `{id}` de mdstrm (`632cbdb5202d6801a31785b0` para El Sol Barranquilla) es específico de cada emisora y **no se deriva del `cipher`/`iv`** sin repetir el proceso manual de inspección de red (reproducir la emisora en el sitio de origen y capturar la petición a `mdstrm.com/audio/{id}/icecast.audio`) — no hay un endpoint público documentado que resuelva `cipher` → `id` de forma genérica. Por eso no se generalizó a un selector dinámico.
+
+Para agregar una emisora nueva del mismo agregador (`emisorascolombianas.co` u otro sitio del portafolio AppMind que use mdstrm):
+1. Repetir la inspección manual: abrir la página de la emisora, dar play, capturar en la pestaña de red la petición a `mdstrm.com/audio/{id}/icecast.audio`.
+2. Agregar la entrada a `RADIO_STATIONS` en `lib/radio.ts` (id, nombre, frecuencia, `streamUrl`).
+3. Si son muchas emisoras, recién ahí vale la pena un selector de UI (dropdown/lista) en `RadioPlayer.tsx` — con una sola emisora no se justificó.
+
 ## Feature propuesta: edición de transcript por chunks
 
 Pedido: desde el cliente web, poder corregir el texto de una entrada de la transcripción (por ejemplo, una marcada con la pill "Baja confianza") y que el backend persista esa corrección. El cliente se implementa acá; el servidor queda a cargo de quien mantiene ese repo — esta sección es el diseño y la tasklist para esa parte.
